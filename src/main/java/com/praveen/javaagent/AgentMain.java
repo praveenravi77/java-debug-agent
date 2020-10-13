@@ -12,6 +12,7 @@ import net.bytebuddy.utility.JavaModule;
 public class AgentMain {
 	public static void premain(String agentOps, Instrumentation inst) {
 		System.out.println("Agent premain");
+
 		new AgentBuilder.Default()
 				.disableClassFormatChanges()
 				// BEGIN -- low key didn't read exactly what this does exactly https://stackoverflow.com/questions/35968530/retransform-classes-with-byte-buddy
@@ -22,11 +23,11 @@ public class AgentMain {
 				// END
 
 				// gets me some debug logs
-//				.with(AgentBuilder.Listener.StreamWriting.toSystemOut())
+				.with(AgentBuilder.Listener.StreamWriting.toSystemOut())
 
-				// This handles just grabbing the classes we care about, ie com.rallyhealth, THIS WORKS
-				.type(ElementMatchers.nameStartsWith("com.praveen.testapp"))
-				.transform(new AgentBuilder.Transformer.ForAdvice() {
+				// filter for the classes we actually want to look at
+				.type(ElementMatchers.any())
+				.transform(new AgentBuilder.Transformer() {
 					@Override
 					public DynamicType.Builder<?> transform(DynamicType.Builder<?> builder, TypeDescription typeDescription, ClassLoader classLoader, JavaModule javaModule) {
 //						return builder.method(ElementMatchers.named("toString")).intercept(FixedValue.value("bleh"));
