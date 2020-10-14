@@ -52,6 +52,8 @@ class ExampleService {
         System.out.println("ExampleService.getUser state before: " + DebugTree.getTree());
         DebugTree.addMethodCall("getUser");
         System.out.println("ExampleService.getUser state after: " + DebugTree.getTree());
+        // we remove it after method call because we dont want it to be there after this task is completed and the thread returns to the pool
+        DebugTree.state.remove();
     }
 }
 

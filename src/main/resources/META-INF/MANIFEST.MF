@@ -1,5 +1,6 @@
 Manifest-Version: 1.0
 Premain-Class: com.praveen.javaagent.AgentMain
 Agent-Class: com.praveen.javaagent.AgentMain
+Main-Class: com.praveen.javaagent.TestFlow
 Can-Redefine-Classes: true
 Can-Retransform-Classes: true
