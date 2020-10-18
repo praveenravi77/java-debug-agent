@@ -1,11 +1,18 @@
 package com.praveen.javaagent;
 
+
 import java.lang.instrument.Instrumentation;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 import net.bytebuddy.agent.builder.AgentBuilder;
 import net.bytebuddy.asm.Advice;
 import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.dynamic.ClassFileLocator;
 import net.bytebuddy.dynamic.DynamicType;
+import net.bytebuddy.dynamic.loading.ClassInjector;
 import net.bytebuddy.utility.JavaModule;
 
 import static net.bytebuddy.matcher.ElementMatchers.*;
@@ -24,17 +31,46 @@ public class AgentMain {
             // END
 
             // gets me some debug logs
-			.with(AgentBuilder.Listener.StreamWriting.toSystemOut())
+			// .with(AgentBuilder.Listener.StreamWriting.toSystemOut())
 
             // filter for the classes we actually want to look at
-            .type(named("play.api.mvc.Action"))
+//			.type(any())
+//			.transform(new AgentBuilder.Transformer() {
+//				@Override
+//				public DynamicType.Builder<?> transform(DynamicType.Builder<?> builder, TypeDescription typeDescription, ClassLoader classLoader, JavaModule module) {
+//					try {
+//						ClassInjector
+//								.UsingInstrumentation
+//								.of(Files.createTempDirectory("javaagent-temp-jars").toFile(), ClassInjector.UsingInstrumentation.Target.BOOTSTRAP, inst)
+//								.inject(Collections.singletonMap(TypeDescription.ForLoadedType.of(DebugTree.class), ClassFileLocator.ForClassLoader.read(DebugTree.class)));
+//					} catch (Exception e) {
+//						e.printStackTrace();
+//					}
+//					return builder;
+//				}
+//			})
+			.type(named("play.api.mvc.Action"))
             .transform(
                 new AgentBuilder.Transformer() {
-
                     @Override
                     public DynamicType.Builder<?> transform(DynamicType.Builder<?> builder, TypeDescription typeDescription, ClassLoader classLoader, JavaModule module) {
                         // probably better to compose new AgentBuilder.Transformer.ForAdvice https://github.com/raphw/byte-buddy/blob/master/byte-buddy-dep/src/main/java/net/bytebuddy/asm/Advice.java#L149-L153
-                        return builder
+                        System.out.println("TypeDescription: " + typeDescription);
+						System.out.println("classLoader: " + classLoader);
+						System.out.println("JavaModule: " + module);
+
+
+						try {
+							ClassInjector
+								.UsingInstrumentation
+								.of(Files.createTempDirectory("javaagent-temp-jars").toFile(), ClassInjector.UsingInstrumentation.Target.BOOTSTRAP, inst)
+								.inject(Collections.singletonMap(TypeDescription.ForLoadedType.of(DebugTree.class), ClassFileLocator.ForClassLoader.read(DebugTree.class)));
+
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+
+						return builder
                                 .visit(
                                     Advice
                                         .to(LoggingAdvice.class)
@@ -43,17 +79,18 @@ public class AgentMain {
                     }
                 }
             )
-            .type(not(named("play.api.mvc.Action")).and(nameStartsWith("com.rallyhealth")))
+            .type(not(isInterface()).and(isSubTypeOf(Runnable.class)))
             .transform(
                     new AgentBuilder.Transformer() {
                         @Override
                         public DynamicType.Builder<?> transform(DynamicType.Builder<?> builder, TypeDescription typeDescription, ClassLoader classLoader, JavaModule module) {
-                            return builder
-                                    .visit(
-                                        Advice
-                                            .to(LoggingAdvice.class)
-                                            .on(isMethod())
-                                    );
+//                            return builder
+//                                    .visit(
+//                                        Advice
+//                                            .to(LoggingAdvice.class)
+//                                            .on(isMethod())
+//                                    );
+								return builder;
                         }
                     }
             )
@@ -65,45 +102,23 @@ public class AgentMain {
 	}
 }
 
-class DebugActionAdvice {
-	@Advice.OnMethodEnter
-	public static void onEnter(@Advice.Origin String origin, @Advice.AllArguments Object[] args) {
-		DebugTree.addMethodCall(origin);
-	}
-
-	@Advice.OnMethodExit(onThrowable = Throwable.class)
-	public static void onExit(@Advice.Origin String origin) {
-		System.out.println(DebugTree.getTree());
-	}
-}
-
 class LoggingAdvice {
 
 	@Advice.OnMethodEnter
 	public static void onEnter(@Advice.Origin String origin, @Advice.AllArguments Object[] args) {
 		System.out.println("STARTED -- " + origin);
+		DebugTree.addMethodCall("bleh");
 	}
 
 	@Advice.OnMethodExit(onThrowable = Throwable.class)
 	public static void onExit(@Advice.Origin String origin) {
 		System.out.println("ENDED -- " + origin);
+		System.out.println("ENDED DEBUG TREE -- " + DebugTree.getTree());
 	}
 }
 
-// Notes
-// Advice.AllArguments gets me all the args, not horrible
-// Advice.Returns or something like that gets me returned value
 
-
-// Questions
-// Advice works as expects, just doesn't seem to work for toString
-
-
-// Flow
-// instrument play filter (maybe even make one on the fly and attach to all all controllers?) to grab debug=True and stash into ThreadLocal
-// whenever new threads are spawned, we have to check if ThreadLocal has debug=true, if so we need to copy into new thread
-// in each method with prefix of com.rallyhealth we print method name and args on enter, and print return value on exit
-// preferred instead of printing would be cool if we could collect the results and change the response to have request, response, and trace with execution tree
-
-
+// new plan after doug killed my dreams of using InheritableThreadLocal
+// if Action create DebugTreeRoot in ThreadLocal
+// Forall things that implements runnable and callable check if there is a value in threadlocal with my debug class and if so copy over? some ish like that
 
