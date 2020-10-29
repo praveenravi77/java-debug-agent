@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 public class DebugTree {
 
-    public static ThreadLocal<ArrayList<String>> state = new ThreadLocal<>();
+    public static ThreadLocal<ArrayList<String>> state = new InheritableThreadLocal<>();
 
     public static void addMethodCall(String methodName) {
         if (state.get() == null) { state.set(new ArrayList<>()); }
